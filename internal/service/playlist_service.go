@@ -49,8 +49,11 @@ func (s *PlaylistService) playCurrentSong() {
 			return // End playback if there is no next song
 		}
 
-		s.logger.Info("Playing song: %s [Remaining duration: %v]", current.Song.Title, current.Song.Duration-position)
-
+		s.logger.Info(
+			"Playing song",
+			slog.String("title", current.Song.Title),
+			slog.Duration("remaining_duration", current.Song.Duration-position),
+		)
 		// Calculate duration of song
 		duration := current.Song.Duration - position
 		ticker := time.NewTicker(1 * time.Second)
@@ -66,7 +69,11 @@ func (s *PlaylistService) playCurrentSong() {
 				s.position = progress
 				s.mu.Unlock()
 			case <-s.stopChan:
-				s.logger.Info("Playback stopped for song: %s", current.Song.Title)
+				s.logger.Info(
+					"Playback stopped for song",
+					slog.String("title", current.Song.Title),
+					slog.String("op", op),
+				)
 				return // Stop playback
 			}
 		}
