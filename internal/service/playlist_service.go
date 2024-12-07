@@ -38,12 +38,18 @@ func (s *PlaylistService) Play() {
 
 	//TODO: add "playing" flag handling
 
+	if s.playing {
+		operationLogger.Warn("Already playing")
+		return
+	}
+
 	if s.paused {
 		s.paused = false
 		operationLogger.Info("Resuming playback")
 		return
 	}
 
+	s.playing = true
 	operationLogger.Info("Starting playback")
 	go s.playCurrentSong()
 }
@@ -55,10 +61,17 @@ func (s *PlaylistService) Pause() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if !s.paused {
-		s.paused = true
-		s.stopChan <- struct{}{}
-		operationLogger.Info("Playback paused...")
+	if !s.playing || s.paused {
+		operationLogger.Warn("Already paused or not playing")
+		return
+	}
+
+	s.paused = true
+	operationLogger.Info("Playback paused...")
+
+	select {
+	case s.stopChan <- struct{}{}:
+	default:
 	}
 }
 
@@ -69,18 +82,7 @@ func (s *PlaylistService) AddSong(song *entity.Song) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	playlist := s.repo.GetPlaylist()
-	newNode := &entity.PlaylistNode{Song: song}
-
-	if playlist.Tail == nil {
-		playlist.Head = newNode
-		playlist.Tail = newNode
-		playlist.Current = newNode
-	} else {
-		playlist.Tail.Next = newNode
-		newNode.Prev = playlist.Tail
-		playlist.Tail = newNode
-	}
+	s.repo.AddSong(song) // TODO: add err := s.repo ... for error handling
 
 	operationLogger.Info("Song added to playlist", slog.String("title", song.Title))
 }
@@ -94,7 +96,7 @@ func (s *PlaylistService) Next() {
 
 	playlist := s.repo.GetPlaylist()
 	if playlist.Current == nil || playlist.Current.Next == nil {
-		s.logger.Warn("No next song to play")
+		operationLogger.Warn("No next song to play")
 		return
 	}
 
@@ -105,8 +107,11 @@ func (s *PlaylistService) Next() {
 
 	playlist.Current = playlist.Current.Next
 	s.position = 0
+	s.playing = false // fix
 
 	operationLogger.Info("Switched to next song", slog.String("title", playlist.Current.Song.Title))
+
+	s.playing = true // fix
 	go s.playCurrentSong()
 }
 
@@ -123,12 +128,18 @@ func (s *PlaylistService) Prev() {
 		return
 	}
 
-	s.stopChan <- struct{}{}
+	select { // Fix: send signal to channel only if it is not full
+	case s.stopChan <- struct{}{}:
+	default:
+	}
 
 	playlist.Current = playlist.Current.Prev
 	s.position = 0
+	s.playing = false
 
 	operationLogger.Info("Switched to previous song", slog.String("title", playlist.Current.Song.Title))
+
+	s.playing = true
 	go s.playCurrentSong()
 }
 
