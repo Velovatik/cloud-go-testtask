@@ -2,17 +2,24 @@ package service
 
 import (
 	"cloud-go-testtask/internal/entity"
-	"cloud-go-testtask/internal/repository"
 	"log/slog"
 	"sync"
 	"time"
 )
 
 /*
+PlaylistRepositoryInterface is a contract for repository
+*/
+type PlaylistRepositoryInterface interface {
+	AddSong(song *entity.Song)
+	GetPlaylist() *entity.Playlist
+}
+
+/*
 PlaylistService is an implementation of structure that can control repository layer access and playlist
 */
 type PlaylistService struct {
-	repo     *repository.PlaylistRepository
+	repo     PlaylistRepositoryInterface
 	mu       sync.Mutex
 	stopChan chan struct{}
 	paused   bool
@@ -21,7 +28,7 @@ type PlaylistService struct {
 	logger   *slog.Logger
 }
 
-func NewPlaylistService(repo *repository.PlaylistRepository, logger *slog.Logger) *PlaylistService {
+func NewPlaylistService(repo PlaylistRepositoryInterface, logger *slog.Logger) *PlaylistService {
 	return &PlaylistService{
 		repo:     repo,
 		stopChan: make(chan struct{}, 1),
@@ -29,7 +36,7 @@ func NewPlaylistService(repo *repository.PlaylistRepository, logger *slog.Logger
 	}
 }
 
-func (s *PlaylistService) Play() {
+func (s *PlaylistService) Play() error {
 	const op = "service.playlist_service.Play"
 	operationLogger := s.logger.With(slog.String("op", op))
 
@@ -40,21 +47,23 @@ func (s *PlaylistService) Play() {
 
 	if s.playing {
 		operationLogger.Warn("Already playing")
-		return
+		return nil
 	}
 
 	if s.paused {
 		s.paused = false
 		operationLogger.Info("Resuming playback")
-		return
+		return nil
 	}
 
 	s.playing = true
 	operationLogger.Info("Starting playback")
 	go s.playCurrentSong()
+
+	return nil
 }
 
-func (s *PlaylistService) Pause() {
+func (s *PlaylistService) Pause() error {
 	const op = "service.playlist_service.Pause"
 	operationLogger := s.logger.With(slog.String("op", op))
 
@@ -63,7 +72,7 @@ func (s *PlaylistService) Pause() {
 
 	if !s.playing || s.paused {
 		operationLogger.Warn("Already paused or not playing")
-		return
+		return nil
 	}
 
 	s.paused = true
@@ -73,9 +82,11 @@ func (s *PlaylistService) Pause() {
 	case s.stopChan <- struct{}{}:
 	default:
 	}
+
+	return nil
 }
 
-func (s *PlaylistService) AddSong(song *entity.Song) {
+func (s *PlaylistService) AddSong(song *entity.Song) error {
 	const op = "service.playlist_service.AddSong"
 	operationLogger := s.logger.With(slog.String("op", op))
 
@@ -85,9 +96,11 @@ func (s *PlaylistService) AddSong(song *entity.Song) {
 	s.repo.AddSong(song) // TODO: add err := s.repo ... for error handling
 
 	operationLogger.Info("Song added to playlist", slog.String("title", song.Title))
+
+	return nil
 }
 
-func (s *PlaylistService) Next() {
+func (s *PlaylistService) Next() error {
 	const op = "service.playlist_service.Next"
 	operationLogger := s.logger.With(slog.String("op", op))
 
@@ -97,7 +110,7 @@ func (s *PlaylistService) Next() {
 	playlist := s.repo.GetPlaylist()
 	if playlist.Current == nil || playlist.Current.Next == nil {
 		operationLogger.Warn("No next song to play")
-		return
+		return nil
 	}
 
 	select {
@@ -113,9 +126,11 @@ func (s *PlaylistService) Next() {
 
 	s.playing = true // fix
 	go s.playCurrentSong()
+
+	return nil
 }
 
-func (s *PlaylistService) Prev() {
+func (s *PlaylistService) Prev() error {
 	const op = "service.playlist_service.Prev"
 	operationLogger := s.logger.With(slog.String("op", op))
 
@@ -125,7 +140,7 @@ func (s *PlaylistService) Prev() {
 	playlist := s.repo.GetPlaylist()
 	if playlist.Current == nil || playlist.Current.Prev == nil {
 		s.logger.Warn("No previous song to play")
-		return
+		return nil
 	}
 
 	select { // Fix: send signal to channel only if it is not full
@@ -141,6 +156,8 @@ func (s *PlaylistService) Prev() {
 
 	s.playing = true
 	go s.playCurrentSong()
+
+	return nil
 }
 
 /*

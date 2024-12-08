@@ -16,10 +16,10 @@ type Playlist struct {
 	stopChan chan struct{}
 }
 
-type PlayList interface {
-	Play() error
-	Pause() error
-	AddSong(song Song) error
-	Next() error
-	Prev() error
-}
+//type PlayList interface {
+//	Play() error
+//	Pause() error
+//	AddSong(song Song) error
+//	Next() error
+//	Prev() error
+//}

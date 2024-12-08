@@ -41,5 +41,8 @@ func (r *PlaylistRepository) AddSong(song *entity.Song) {
 }
 
 func (r *PlaylistRepository) GetPlaylist() *entity.Playlist {
+	r.playlistMutex.Lock()
+	defer r.playlistMutex.Unlock()
+
 	return r.playlist
 }
