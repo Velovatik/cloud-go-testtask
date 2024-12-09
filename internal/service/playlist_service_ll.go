@@ -11,8 +11,8 @@ import (
 PlaylistRepositoryInterface is a contract for repository
 */
 type PlaylistRepositoryInterface interface {
-	AddSong(song *entity.Song)
-	GetPlaylist() *entity.Playlist
+	AddSong(song *entity.Song) error
+	GetPlaylist() (*entity.Playlist, error)
 }
 
 /*
@@ -43,8 +43,6 @@ func (s *PlaylistService) Play() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	//TODO: add "playing" flag handling
-
 	if s.playing {
 		operationLogger.Warn("Already playing")
 		return nil
@@ -52,7 +50,20 @@ func (s *PlaylistService) Play() error {
 
 	if s.paused {
 		s.paused = false
+		s.playing = true
 		operationLogger.Info("Resuming playback")
+		go s.playCurrentSong()
+		return nil
+	}
+
+	playlist, err := s.repo.GetPlaylist()
+	if err != nil {
+		operationLogger.Error("Failed to get playlist", slog.String("error", err.Error()))
+		return err
+	}
+
+	if playlist.GetCurrent() == nil {
+		operationLogger.Warn("No song to play")
 		return nil
 	}
 
@@ -76,6 +87,7 @@ func (s *PlaylistService) Pause() error {
 	}
 
 	s.paused = true
+	s.playing = false
 	operationLogger.Info("Playback paused...")
 
 	select {
@@ -93,7 +105,10 @@ func (s *PlaylistService) AddSong(song *entity.Song) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.repo.AddSong(song) // TODO: add err := s.repo ... for error handling
+	if err := s.repo.AddSong(song); err != nil {
+		operationLogger.Error("Failed to add song", slog.String("error", err.Error()))
+		return err
+	}
 
 	operationLogger.Info("Song added to playlist", slog.String("title", song.Title))
 
@@ -107,8 +122,14 @@ func (s *PlaylistService) Next() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	playlist := s.repo.GetPlaylist()
-	if playlist.Current == nil || playlist.Current.Next == nil {
+	playlist, err := s.repo.GetPlaylist()
+	if err != nil {
+		operationLogger.Error("Failed to get playlist", slog.String("error", err.Error()))
+		return err
+	}
+
+	current := playlist.GetCurrent()
+	if current == nil || current.Next == nil {
 		operationLogger.Warn("No next song to play")
 		return nil
 	}
@@ -118,13 +139,17 @@ func (s *PlaylistService) Next() error {
 	default:
 	}
 
-	playlist.Current = playlist.Current.Next
+	if err := playlist.SetCurrent(current.Next); err != nil {
+		operationLogger.Error("Failed to set current song", slog.String("error", err.Error()))
+		return err
+	}
+
 	s.position = 0
-	s.playing = false // fix
+	s.paused = false
+	s.playing = true
 
-	operationLogger.Info("Switched to next song", slog.String("title", playlist.Current.Song.Title))
+	operationLogger.Info("Switched to next song", slog.String("title", current.Next.Song.Title))
 
-	s.playing = true // fix
 	go s.playCurrentSong()
 
 	return nil
@@ -137,9 +162,15 @@ func (s *PlaylistService) Prev() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	playlist := s.repo.GetPlaylist()
-	if playlist.Current == nil || playlist.Current.Prev == nil {
-		s.logger.Warn("No previous song to play")
+	playlist, err := s.repo.GetPlaylist()
+	if err != nil {
+		operationLogger.Error("Failed to get playlist", slog.String("error", err.Error()))
+		return err
+	}
+
+	current := playlist.GetCurrent()
+	if current == nil || current.Prev == nil {
+		operationLogger.Warn("No previous song to play")
 		return nil
 	}
 
@@ -148,13 +179,19 @@ func (s *PlaylistService) Prev() error {
 	default:
 	}
 
-	playlist.Current = playlist.Current.Prev
+	//playlist.Current = playlist.Current.Prev
+
+	if err := playlist.SetCurrent(current.Prev); err != nil {
+		operationLogger.Error("Failed to set current song", slog.String("error", err.Error()))
+		return err
+	}
+
 	s.position = 0
-	s.playing = false
-
-	operationLogger.Info("Switched to previous song", slog.String("title", playlist.Current.Song.Title))
-
+	s.paused = false
 	s.playing = true
+
+	operationLogger.Info("Switched to previous song", slog.String("title", current.Prev.Song.Title))
+
 	go s.playCurrentSong()
 
 	return nil
@@ -178,8 +215,15 @@ func (s *PlaylistService) playCurrentSong() {
 
 	for {
 		s.mu.Lock()
-		playlist := s.repo.GetPlaylist()
-		current := playlist.Current
+
+		playlist, err := s.repo.GetPlaylist()
+		if err != nil {
+			operationLogger.Error("Failed to get playlist", slog.String("error", err.Error()))
+			s.mu.Unlock()
+			return
+		}
+
+		current := playlist.GetCurrent()
 		position := s.position
 		s.mu.Unlock()
 
@@ -219,15 +263,20 @@ func (s *PlaylistService) playCurrentSong() {
 
 		// Swith to next song
 		s.mu.Lock()
-		if playlist.Current.Next != nil {
-			playlist.Current = playlist.Current.Next
-			s.position = 0 // We start playback at 0s of next song
+
+		if current.Next != nil {
+			if err := playlist.SetCurrent(current.Next); err != nil {
+				operationLogger.Error("Failed to set current song", slog.String("error", err.Error()))
+				s.mu.Unlock()
+				return
+			}
+			s.position = 0
 		} else {
-			// There is no next song, stop
 			operationLogger.Info("No next song. Playback completed.")
 			s.mu.Unlock()
 			return
 		}
+
 		s.mu.Unlock()
 	}
 }

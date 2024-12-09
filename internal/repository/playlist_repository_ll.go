@@ -20,29 +20,42 @@ func NewPlaylistRepository() *PlaylistRepository {
 	}
 }
 
-func (r *PlaylistRepository) AddSong(song *entity.Song) {
+func (r *PlaylistRepository) AddSong(song *entity.Song) error {
 	r.playlistMutex.Lock()
 	defer r.playlistMutex.Unlock()
+
+	if song == nil {
+		return ErrNullSong
+	}
 
 	newNode := &entity.PlaylistNode{
 		Song: song,
 	}
 
-	if r.playlist.Tail == nil {
-		r.playlist.Head = newNode
-		r.playlist.Tail = newNode
-		r.playlist.Current = newNode
+	tail := r.playlist.GetTail()
+	if tail == nil {
+		r.playlist.SetHead(newNode)
+		r.playlist.SetTail(newNode)
+		if err := r.playlist.SetCurrent(newNode); err != nil {
+			return err
+		}
 	} else {
-		newNode.Prev = r.playlist.Tail
-		r.playlist.Tail.Next = newNode
-		r.playlist.Tail = newNode
+		newNode.Prev = tail
+		tail.Next = newNode
+		r.playlist.SetTail(newNode)
 	}
+
+	return nil
 
 }
 
-func (r *PlaylistRepository) GetPlaylist() *entity.Playlist {
+func (r *PlaylistRepository) GetPlaylist() (*entity.Playlist, error) {
 	r.playlistMutex.Lock()
 	defer r.playlistMutex.Unlock()
 
-	return r.playlist
+	if r.playlist == nil {
+		return nil, ErrPlaylistNotInitialized
+	}
+
+	return r.playlist, nil
 }
