@@ -7,10 +7,20 @@ import (
 	"time"
 )
 
+type DBConfig struct {
+	Host     string `yaml:"host" env:"DB_HOST" env-default:"localhost"`
+	Port     int    `yaml:"port" env:"DB_PORT" env-default:"5432"`
+	User     string `yaml:"user" env:"DB_USER" env-default:"postgres"`
+	Password string `yaml:"password" env:"DB_PASSWORD" env-default:"secret"`
+	DBName   string `yaml:"db_name" env:"DB_NAME" env-default:"playlist"`
+	SSLMode  string `yaml:"ssl_mode" env:"DB_SSLMODE" env-default:"disable"`
+}
+
 type Config struct {
 	Env         string `yaml:"env" env-default:"local"`
 	StoragePath string `yaml:"storage_path" env-required:"true"`
 	HTTPServer  `yaml:"http_server"`
+	DBConfig    DBConfig `yaml:"db_config"`
 }
 
 type HTTPServer struct {
@@ -38,5 +48,6 @@ func MustLoad() *Config {
 		log.Fatalf("Cannot read config: %s", err)
 	}
 
+	log.Printf("Loaded configuration: %+v\n", cfg)
 	return &cfg
 }

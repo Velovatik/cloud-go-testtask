@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  app:
+    #command: go test ./... -v -race
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./storage:/app/storage
+      - ./config.yaml:/app/config.yaml
+    depends_on:
+        - db
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "password"
+      POSTGRES_DB: "playlist"
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:
