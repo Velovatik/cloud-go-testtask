@@ -68,7 +68,7 @@ func main() {
 
 	// Gracefully shut down the server
 	if err := srv.Shutdown(context.Background()); err != nil {
-		log.Error("Server forced to shutdown:")
+		log.Error("Server forced to shutdown")
 	}
 	log.Info("Server exiting")
 
