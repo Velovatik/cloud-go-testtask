@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"github.com/ilyakaznacheev/cleanenv"
 	"log"
 	"os"
@@ -50,4 +51,16 @@ func MustLoad() *Config {
 
 	log.Printf("Loaded configuration: %+v\n", cfg)
 	return &cfg
+}
+
+func (db *DBConfig) GetPostgresDSN() string {
+	return fmt.Sprintf(
+		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
+		db.User,
+		db.Password,
+		db.Host,
+		db.Port,
+		db.DBName,
+		db.SSLMode,
+	)
 }

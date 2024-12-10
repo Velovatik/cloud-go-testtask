@@ -1,15 +1,15 @@
-package repository_test
+package cache_test
 
 import (
 	"cloud-go-testtask/internal/entity"
-	"cloud-go-testtask/internal/repository"
+	"cloud-go-testtask/internal/repository/cache"
 	"sync"
 	"testing"
 	"time"
 )
 
 func TestAddSongConcurrency(t *testing.T) {
-	repo := repository.NewPlaylistRepository()
+	repo := cache.NewPlaylistRepository()
 	numGoroutines := 20
 	songsPerGoroutine := 1000
 	totalSongs := numGoroutines * songsPerGoroutine

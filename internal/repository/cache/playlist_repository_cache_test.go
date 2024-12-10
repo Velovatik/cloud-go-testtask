@@ -1,15 +1,16 @@
-package repository_test
+package cache_test
 
 import (
 	"cloud-go-testtask/internal/entity"
 	"cloud-go-testtask/internal/repository"
+	"cloud-go-testtask/internal/repository/cache"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
 
 func TestAddSong(t *testing.T) {
-	repo := repository.NewPlaylistRepository()
+	repo := cache.NewPlaylistRepository()
 
 	testSong := &entity.Song{
 		ID:       1,
@@ -29,7 +30,7 @@ func TestAddSong(t *testing.T) {
 }
 
 func TestAddNilSong(t *testing.T) {
-	repo := repository.NewPlaylistRepository()
+	repo := cache.NewPlaylistRepository()
 
 	err := repo.AddSong(nil)
 
@@ -38,7 +39,7 @@ func TestAddNilSong(t *testing.T) {
 }
 
 func TestPlaylistNotInitialized(t *testing.T) {
-	repo := &repository.PlaylistRepository{}
+	repo := &cache.PlaylistRepositoryCache{}
 
 	_, err := repo.GetPlaylist()
 	assert.Error(t, err)

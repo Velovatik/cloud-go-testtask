@@ -10,9 +10,25 @@ services:
       - "8080:8080"
     volumes:
       - ./storage:/app/storage
-      - ./config.yaml:/app/config.yaml
+      - ./config:/app/config
+    environment:
+      CONFIG_PATH: /app/config/local.yaml
     depends_on:
         - db
+
+  migrations:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: ["./migrate"]
+    volumes:
+      - ./config:/app/config
+      - ./migrations:/app/migrations
+    environment:
+      GOPROXY: "https://goproxy.io"
+      CONFIG_PATH: /app/config/local.yaml
+    depends_on:
+      - db
 
   db:
     image: postgres:15

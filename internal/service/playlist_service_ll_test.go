@@ -2,7 +2,7 @@ package service_test
 
 import (
 	"cloud-go-testtask/internal/entity"
-	"cloud-go-testtask/internal/repository"
+	"cloud-go-testtask/internal/repository/cache"
 	"cloud-go-testtask/internal/service"
 	"fmt"
 	"github.com/stretchr/testify/assert"
@@ -14,7 +14,7 @@ import (
 )
 
 func TestPlaylistService_Concurrency(t *testing.T) {
-	repo := repository.NewPlaylistRepository()
+	repo := cache.NewPlaylistRepository()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	PlaylistService := service.NewPlaylistService(repo, logger)
 
@@ -44,7 +44,7 @@ func TestPlaylistService_Concurrency(t *testing.T) {
 }
 
 func TestAddSong(t *testing.T) {
-	repo := repository.NewPlaylistRepository()
+	repo := cache.NewPlaylistRepository()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	service := service.NewPlaylistService(repo, logger)
 
