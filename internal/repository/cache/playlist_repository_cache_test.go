@@ -10,7 +10,7 @@ import (
 )
 
 func TestAddSong(t *testing.T) {
-	repo := cache.NewPlaylistRepository()
+	repo := cache.NewPlaylistRepositoryCache()
 
 	testSong := &entity.Song{
 		ID:       1,
@@ -30,7 +30,7 @@ func TestAddSong(t *testing.T) {
 }
 
 func TestAddNilSong(t *testing.T) {
-	repo := cache.NewPlaylistRepository()
+	repo := cache.NewPlaylistRepositoryCache()
 
 	err := repo.AddSong(nil)
 

@@ -2,9 +2,15 @@ package main
 
 import (
 	"cloud-go-testtask/internal/config"
+	"cloud-go-testtask/internal/delivery"
+	"cloud-go-testtask/internal/repository/cache"
+	"cloud-go-testtask/internal/repository/rdbms"
+	"cloud-go-testtask/internal/usecase"
 	"context"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	"database/sql"
+	"errors"
+	_ "github.com/lib/pq"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -31,23 +37,52 @@ In main() function there is:
 func main() {
 	cfg := config.MustLoad()
 
-	log := setupLogger(cfg.Env)
+	logger := setupLogger(cfg.Env)
 
-	router := chi.NewRouter()
+	db, err := sql.Open("postgres", cfg.DBConfig.GetPostgresDSN())
+	if err != nil {
+		logger.Error("Failed to connect to database", "error", err)
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer db.Close()
+
+	if err := db.Ping(); err != nil {
+		logger.Error("Failed to ping database", "error", err)
+		log.Fatalf("Failed to ping database: %v", err)
+	}
+
+	rdbmsRepo := rdbms.NewPlaylistRepositoryRDBMS(db)
+	cacheRepo := cache.NewPlaylistRepositoryCache()
+
+	defaultPlaylistID := 1
+	if repo, ok := rdbmsRepo.(*rdbms.PlaylistRepositoryRDBMS); ok {
+		repo.SetDefaultPlaylistID(defaultPlaylistID)
+	} else {
+		logger.Error("Failed to set default playlist ID: invalid repository type")
+		log.Fatalf("Invalid repository type")
+	}
+
+	uc := usecase.NewPlaylistUseCase(rdbmsRepo, cacheRepo, logger)
+
+	// Инициализация кеша
+	if err := uc.InitCache(); err != nil {
+		logger.Error("Failed to initialize cache", "error", err)
+		log.Fatalf("Failed to initialize cache: %v", err)
+	}
+
+	handler := delivery.NewPlaylistHandler(uc, logger)
+	router := delivery.NewRouter(handler)
 
 	// Middleware
-	router.Use(middleware.RequestID)
-	router.Use(middleware.Logger)
-	router.Use(middleware.Recoverer)
-	router.Use(middleware.URLFormat)
-
-	// Routers
-	//e.g. router.Post("/example", handler()) TODO: add routers
+	//router.Use(middleware.RequestID)
+	//router.Use(middleware.Logger)
+	//router.Use(middleware.Recoverer)
+	//router.Use(middleware.URLFormat)
 
 	// Init server
-	log.Info("Starting server", slog.String("address", cfg.Address))
+	logger.Info("Starting server", slog.String("address", cfg.Address))
 	srv := &http.Server{
-		Addr:         cfg.Address,
+		Addr:         cfg.HTTPServer.Address,
 		Handler:      router,
 		ReadTimeout:  cfg.HTTPServer.Timeout,
 		WriteTimeout: cfg.HTTPServer.Timeout,
@@ -56,8 +91,8 @@ func main() {
 
 	// Run server
 	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Error("Failed to start server")
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Error("Failed to start server")
 		}
 	}()
 
@@ -68,9 +103,9 @@ func main() {
 
 	// Gracefully shut down the server
 	if err := srv.Shutdown(context.Background()); err != nil {
-		log.Error("Server forced to shutdown")
+		logger.Error("Server forced to shutdown")
 	}
-	log.Info("Server exiting")
+	logger.Info("Server exiting")
 
 }
 

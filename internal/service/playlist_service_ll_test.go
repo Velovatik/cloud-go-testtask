@@ -14,7 +14,7 @@ import (
 )
 
 func TestPlaylistService_Concurrency(t *testing.T) {
-	repo := cache.NewPlaylistRepository()
+	repo := cache.NewPlaylistRepositoryCache()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	PlaylistService := service.NewPlaylistService(repo, logger)
 
@@ -44,7 +44,7 @@ func TestPlaylistService_Concurrency(t *testing.T) {
 }
 
 func TestAddSong(t *testing.T) {
-	repo := cache.NewPlaylistRepository()
+	repo := cache.NewPlaylistRepositoryCache()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	service := service.NewPlaylistService(repo, logger)
 

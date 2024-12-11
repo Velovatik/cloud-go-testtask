@@ -15,7 +15,7 @@ type PlaylistRepositoryCache struct {
 	playlist *entity.Playlist
 }
 
-func NewPlaylistRepository() *PlaylistRepositoryCache {
+func NewPlaylistRepositoryCache() *PlaylistRepositoryCache {
 	return &PlaylistRepositoryCache{
 		playlist: &entity.Playlist{},
 	}

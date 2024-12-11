@@ -9,7 +9,7 @@ import (
 )
 
 func TestAddSongConcurrency(t *testing.T) {
-	repo := cache.NewPlaylistRepository()
+	repo := cache.NewPlaylistRepositoryCache()
 	numGoroutines := 20
 	songsPerGoroutine := 1000
 	totalSongs := numGoroutines * songsPerGoroutine

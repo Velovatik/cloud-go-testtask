@@ -3,6 +3,7 @@ package usecase
 import (
 	"cloud-go-testtask/internal/entity"
 	"cloud-go-testtask/internal/repository"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -33,19 +34,34 @@ func NewPlaylistUseCase(rdbmsRepo, cacheRepo repository.PlaylistRepository, logg
 }
 
 func (uc *PlaylistUseCase) InitCache() error {
+	const op = "usecase.PlaylistUseCase.InitCache"
+	operationLogger := uc.logger.With(slog.String("op", op))
+
+	operationLogger.Debug("Initializing cache")
+
 	uc.mu.Lock()
 	defer uc.mu.Unlock()
 
 	playlist, err := uc.rdbmsRepo.GetPlaylist()
 	if err != nil {
-		return err
+		operationLogger.Error("Failed to get playlist from DB",
+			slog.String("error", err.Error()),
+		)
+		return fmt.Errorf("InitCache: %w", err)
 	}
 
 	current := playlist.GetHead()
 	for current != nil {
 		if err := uc.cacheRepo.AddSong(current.Song); err != nil {
-			return err
+			operationLogger.Error("Failed to add song to Cache",
+				slog.String("song_title", current.Song.Title),
+				slog.String("error", err.Error()),
+			)
+			return fmt.Errorf("InitCache: %w", err)
 		}
+		operationLogger.Debug("Added song to Cache",
+			slog.String("song_title", current.Song.Title),
+		)
 
 		current = current.Next
 	}
@@ -53,14 +69,31 @@ func (uc *PlaylistUseCase) InitCache() error {
 	currentNode := playlist.GetCurrent()
 	if currentNode != nil {
 		if err := uc.cacheRepo.SetCurrent(currentNode); err != nil {
-			return err // TODO: add additional err handling
+			operationLogger.Error("Failed to set current song in Cache",
+				slog.String("song_title", currentNode.Song.Title),
+				slog.String("error", err.Error()),
+			)
+			return fmt.Errorf("InitCache: %w", err)
 		}
+		operationLogger.Debug("Set current song in Cache",
+			slog.String("song_title", currentNode.Song.Title),
+		)
 	}
 
+	operationLogger.Debug("Cache initialized successfully")
 	return nil
 }
 
 func (uc *PlaylistUseCase) AddSong(title, artist string, duration time.Duration) error {
+	const op = "usecase.PlaylistUseCase.AddSong"
+	operationLogger := uc.logger.With(slog.String("op", op))
+
+	operationLogger.Debug("Adding new song",
+		slog.String("title", title),
+		slog.String("artist", artist),
+		slog.Duration("duration", duration),
+	)
+
 	uc.mu.Lock()
 	defer uc.mu.Unlock()
 
@@ -71,22 +104,45 @@ func (uc *PlaylistUseCase) AddSong(title, artist string, duration time.Duration)
 	}
 
 	if err := uc.rdbmsRepo.AddSong(song); err != nil {
-		return ErrAddSongToDB //TODO: Add error description within default Err
+		operationLogger.Error("Failed to add song to DB",
+			slog.String("title", title),
+			slog.String("artist", artist),
+			slog.Duration("duration", duration),
+			slog.String("error", err.Error()),
+		)
+		return fmt.Errorf("%w: %v", ErrAddSongToDB, err)
 	}
 
 	if err := uc.cacheRepo.AddSong(song); err != nil {
-		return ErrAddSongToCache
+		operationLogger.Error("Failed to add song to Cache",
+			slog.String("title", title),
+			slog.String("artist", artist),
+			slog.Duration("duration", duration),
+			slog.String("error", err.Error()),
+		)
+		return fmt.Errorf("%w: %v", ErrAddSongToCache, err)
 	}
+
+	operationLogger.Debug("Song added successfully",
+		slog.String("title", title),
+		slog.String("artist", artist),
+	)
 
 	return nil
 }
 
 func (uc *PlaylistUseCase) Play() error {
+	const op = "usecase.PlaylistUseCase.Play"
+	operationLogger := uc.logger.With(slog.String("op", op))
+
+	operationLogger.Debug("Play called")
+
 	uc.mu.Lock()
 	defer uc.mu.Unlock()
 
 	if uc.playing && !uc.paused {
-		return nil // TODO: Add already playing err/log
+		operationLogger.Warn("Play called, but already playing")
+		return nil
 	}
 
 	uc.paused = false
@@ -94,21 +150,30 @@ func (uc *PlaylistUseCase) Play() error {
 		uc.playing = true
 		uc.stopChan = make(chan struct{}, 1)
 		go uc.playCurrentSong() // Playback emulation
+		operationLogger.Debug("Playback started")
 	} else {
 		go uc.playCurrentSong()
+		operationLogger.Debug("Resumed playback")
 	}
 
-	return nil // TODO: add run goroutine playing
+	return nil
 }
 
 func (uc *PlaylistUseCase) Pause() error {
+	const op = "usecase.PlaylistUseCase.Pause"
+	operationLogger := uc.logger.With(slog.String("op", op))
+
+	operationLogger.Debug("Pause called")
+
 	uc.mu.Lock()
 	defer uc.mu.Unlock()
 
 	if !uc.playing {
+		operationLogger.Warn("Pause called, but not playing")
 		return ErrNotPlaying
 	}
 	if uc.paused {
+		operationLogger.Warn("Pause called, but already paused")
 		return ErrAlreadyPaused
 	}
 
@@ -120,21 +185,32 @@ func (uc *PlaylistUseCase) Pause() error {
 	default:
 	}
 
+	operationLogger.Debug("Playback paused")
+
 	return nil
 }
 
 func (uc *PlaylistUseCase) Next() error {
+	const op = "usecase.PlaylistUseCase.Next"
+	operationLogger := uc.logger.With(slog.String("op", op))
+
+	operationLogger.Debug("Next called")
+
 	uc.mu.Lock()
 	defer uc.mu.Unlock()
 
 	playlist, err := uc.cacheRepo.GetPlaylist()
 	if err != nil {
-		return ErrGetPlaylistFromCache
+		operationLogger.Error("Failed to get playlist from Cache",
+			slog.String("error", err.Error()),
+		)
+		return fmt.Errorf("%w: %v", ErrGetPlaylistFromCache, err)
 	}
 
 	current := playlist.GetCurrent()
 	if current == nil || current.Next == nil {
-		return ErrNoNextSong
+		operationLogger.Warn("No next song available in playlist")
+		return fmt.Errorf("%w: %v", ErrNoNextSong, err)
 	}
 
 	uc.position = 0
@@ -147,31 +223,42 @@ func (uc *PlaylistUseCase) Next() error {
 	}
 
 	if err := uc.cacheRepo.SetCurrent(current.Next); err != nil {
-		return ErrSetCurrentInCache
+		return fmt.Errorf("%w: %v", ErrSetCurrentInCache, err)
 	}
 
 	if err := uc.rdbmsRepo.SetCurrent(current.Next); err != nil {
-		return ErrSetCurrentInDB
+		return fmt.Errorf("%w: %v", ErrSetCurrentInDB, err)
 	}
 
 	uc.playing = true
 	uc.stopChan = make(chan struct{}, 1)
 	go uc.playCurrentSong()
+	operationLogger.Info("Moved to next song and started playback")
+
 	return nil
 }
 
 func (uc *PlaylistUseCase) Prev() error {
+	const op = "usecase.PlaylistUseCase.Prev"
+	operationLogger := uc.logger.With(slog.String("op", op))
+
+	operationLogger.Debug("Prev called")
+
 	uc.mu.Lock()
 	defer uc.mu.Unlock()
 
 	playlist, err := uc.cacheRepo.GetPlaylist()
 	if err != nil {
-		return ErrGetPlaylistFromCache
+		operationLogger.Error("Failed to get playlist from Cache",
+			slog.String("error", err.Error()),
+		)
+		return fmt.Errorf("%w: %v", ErrGetPlaylistFromCache, err)
 	}
 
 	current := playlist.GetCurrent()
 	if current == nil || current.Prev == nil {
-		return ErrNoPrevSong
+		operationLogger.Warn("No previous song available in playlist")
+		return fmt.Errorf("%w: %v", ErrNoPrevSong, err)
 	}
 
 	uc.position = 0
@@ -184,29 +271,45 @@ func (uc *PlaylistUseCase) Prev() error {
 	}
 
 	if err := uc.cacheRepo.SetCurrent(current.Prev); err != nil {
-		return ErrSetCurrentInCache
+		return fmt.Errorf("%w: %v", ErrSetCurrentInCache, err)
 	}
 	if err := uc.rdbmsRepo.SetCurrent(current.Prev); err != nil {
-		return ErrSetCurrentInDB
+		return fmt.Errorf("%w: %v", ErrSetCurrentInDB, err)
 	}
 
 	uc.playing = true
 	uc.stopChan = make(chan struct{}, 1)
 	go uc.playCurrentSong()
+	operationLogger.Info("Moved to previous song and started playback")
+
 	return nil
 }
 
 func (uc *PlaylistUseCase) GetCurrentSong() (*entity.Song, error) {
+	const op = "usecase.PlaylistUseCase.GetCurrentSong"
+	operationLogger := uc.logger.With(slog.String("op", op))
+
+	operationLogger.Debug("GetCurrentSong called")
+
 	uc.mu.Lock()
 	defer uc.mu.Unlock()
 
 	node, err := uc.cacheRepo.GetCurrent()
 	if err != nil {
-		return nil, ErrGetCurrentNode
+		operationLogger.Error("Failed to get current song from Cache",
+			slog.String("error", err.Error()),
+		)
+		return nil, fmt.Errorf("%w: %v", ErrGetCurrentNode, err)
 	}
 	if node == nil || node.Song == nil {
-		return nil, ErrNoCurrentSong
+		operationLogger.Warn("No current song set in playlist")
+		return nil, fmt.Errorf("%w: %v", ErrNoCurrentSong, err)
 	}
+	operationLogger.Debug("Retrieved current song",
+		slog.String("title", node.Song.Title),
+		slog.String("artist", node.Song.Artist),
+	)
+
 	return node.Song, nil
 }
 
@@ -216,7 +319,7 @@ func (uc *PlaylistUseCase) GetPlaylist() (*entity.Playlist, error) {
 
 	playlist, err := uc.cacheRepo.GetPlaylist()
 	if err != nil {
-		return nil, ErrGetPlaylistFromCache
+		return nil, fmt.Errorf("%w: %v", ErrGetPlaylistFromCache, err)
 	}
 	return playlist, nil
 }
@@ -250,7 +353,7 @@ func (uc *PlaylistUseCase) playCurrentSong() {
 		}
 
 		if current == nil || current.Song == nil {
-			operationLogger.Info("No song to play. Playback stopped.")
+			operationLogger.Debug("No song to play. Playback stopped.")
 			uc.mu.Lock()
 			uc.playing = false
 			uc.mu.Unlock()
@@ -272,14 +375,14 @@ func (uc *PlaylistUseCase) playCurrentSong() {
 				uc.mu.Unlock()
 				continue
 			} else {
-				operationLogger.Info("No next song. Playback completed.")
+				operationLogger.Debug("No next song. Playback completed.")
 				uc.playing = false
 				uc.mu.Unlock()
 				return
 			}
 		}
 
-		operationLogger.Info(
+		operationLogger.Debug(
 			"Playing song",
 			slog.String("title", current.Song.Title),
 			slog.Duration("remaining_duration", duration),
@@ -308,7 +411,7 @@ func (uc *PlaylistUseCase) playCurrentSong() {
 
 			case <-stopChan:
 				ticker.Stop()
-				operationLogger.Info(
+				operationLogger.Debug(
 					"Playback stopped for song",
 					slog.String("title", current.Song.Title),
 					slog.String("op", op),
@@ -333,11 +436,10 @@ func (uc *PlaylistUseCase) playCurrentSong() {
 			uc.position = 0
 			uc.mu.Unlock()
 		} else {
-			operationLogger.Info("No next song. Playback completed.")
+			operationLogger.Debug("No next song. Playback completed.")
 			uc.mu.Unlock()
 			uc.playing = false
 			return
 		}
 	}
-
 }

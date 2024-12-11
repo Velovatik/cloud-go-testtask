@@ -12,9 +12,9 @@ services:
       - ./storage:/app/storage
       - ./config:/app/config
     environment:
-      CONFIG_PATH: /app/config/local.yaml
+      CONFIG_PATH: /app/config/dev.yaml
     depends_on:
-        - db
+      - db
 
   migrations:
     build:

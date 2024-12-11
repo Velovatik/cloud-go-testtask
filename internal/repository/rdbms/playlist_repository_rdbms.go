@@ -9,8 +9,8 @@ import (
 )
 
 type PlaylistRepositoryRDBMS struct {
-	db               *sql.DB
-	defaulPlaylistID int // Может есть способ лучше?...
+	db                *sql.DB
+	defaultPlaylistID int // Может есть способ лучше?...
 }
 
 func NewPlaylistRepositoryRDBMS(db *sql.DB) repository.PlaylistRepository {
@@ -33,6 +33,22 @@ func (r *PlaylistRepositoryRDBMS) CreatePlaylist(name, description string) (int,
 	}
 
 	return createdPlaylistId, nil
+}
+
+func (r *PlaylistRepositoryRDBMS) FindPlaylistIDByName(name string) (int, error) {
+	var id int
+	err := r.db.QueryRow("SELECT id FROM playlists WHERE name = $1", name).Scan(&id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, repository.ErrPlaylistNotFound
+		}
+		return 0, err
+	}
+	return id, nil
+}
+
+func (r *PlaylistRepositoryRDBMS) SetDefaultPlaylistID(id int) {
+	r.defaultPlaylistID = id
 }
 
 func (r *PlaylistRepositoryRDBMS) GetPlaylistByID(id int) (*entity.Playlist, error) {
@@ -126,7 +142,7 @@ func (r *PlaylistRepositoryRDBMS) AddSong(song *entity.Song) error {
 
 	duration := int(song.Duration.Seconds())
 
-	err := r.db.QueryRow("INSERT INTO songs (title, artist, duration) VALUES ($1, $2, $3)",
+	_, err := r.db.Exec("INSERT INTO songs (title, artist, duration) VALUES ($1, $2, $3)",
 		song.Title, song.Artist, duration)
 
 	if err != nil { // TODO: Add additional err handling
@@ -220,34 +236,34 @@ func (r *PlaylistRepositoryRDBMS) RemoveSongFromPlaylist(playlistID, songID int)
 */
 
 func (r *PlaylistRepositoryRDBMS) GetPlaylist() (*entity.Playlist, error) {
-	if r.defaulPlaylistID == 0 {
+	if r.defaultPlaylistID == 0 {
 		return nil, repository.ErrDefaultPlaylistNotSet
 	}
 
-	return r.GetPlaylistByID(r.defaulPlaylistID)
+	return r.GetPlaylistByID(r.defaultPlaylistID)
 }
 
 func (r *PlaylistRepositoryRDBMS) SetCurrent(node *entity.PlaylistNode) error {
-	if r.defaulPlaylistID == 0 {
+	if r.defaultPlaylistID == 0 {
 		return repository.ErrDefaultPlaylistNotSet
 	}
 	if node == nil || node.Song == nil {
 		return repository.ErrNilNode
 	}
 
-	return r.UpdatePlaylistCurrentSong(r.defaulPlaylistID, node.Song.ID)
+	return r.UpdatePlaylistCurrentSong(r.defaultPlaylistID, node.Song.ID)
 
 }
 
 func (r *PlaylistRepositoryRDBMS) GetCurrent() (*entity.PlaylistNode, error) {
-	if r.defaulPlaylistID == 0 {
+	if r.defaultPlaylistID == 0 {
 		return nil, repository.ErrDefaultPlaylistNotSet
 	}
 
 	var currentSongID sql.NullInt64
 
 	err := r.db.QueryRow("SELECT current_song_id FROM playlists WHERE id = $1",
-		r.defaulPlaylistID).Scan(&currentSongID)
+		r.defaultPlaylistID).Scan(&currentSongID)
 
 	if err != nil { //TODO: add additional error handling
 		return nil, err

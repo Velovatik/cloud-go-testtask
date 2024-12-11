@@ -30,6 +30,6 @@ COPY --from=builder /go/bin/goose /usr/local/bin/goose
 COPY ./migrations ./migrations
 COPY ./config ./config
 
-EXPOSE 8080
+EXPOSE 8082
 
 CMD ["./app"]
