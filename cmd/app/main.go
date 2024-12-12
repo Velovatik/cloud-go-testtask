@@ -13,6 +13,7 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -36,6 +37,7 @@ In main() function there is:
 */
 func main() {
 	cfg := config.MustLoad()
+	//config.LoadEnv()
 
 	logger := setupLogger(cfg.Env)
 
