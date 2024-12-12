@@ -32,10 +32,6 @@ services:
 
   db:
     image: postgres:15
-    environment:
-      POSTGRES_USER: "postgres"
-      POSTGRES_PASSWORD: "password"
-      POSTGRES_DB: "playlist"
     ports:
       - "5432:5432"
     volumes:

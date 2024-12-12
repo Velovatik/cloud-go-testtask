@@ -56,3 +56,27 @@ func (p *Playlist) AddToEnd(song *Song) *PlaylistNode {
 	}
 	return node
 }
+
+func (p *Playlist) RemoveSong(songID int) error {
+	node := p.head
+	for node != nil {
+		if node.Song.ID == songID {
+			if node.Prev != nil {
+				node.Prev.Next = node.Next
+			} else {
+				p.head = node.Next
+			}
+			if node.Next != nil {
+				node.Next.Prev = node.Prev
+			} else {
+				p.tail = node.Prev
+			}
+			if p.current == node {
+				p.current = node.Next
+			}
+			return nil
+		}
+		node = node.Next
+	}
+	return ErrSongNotFound
+}

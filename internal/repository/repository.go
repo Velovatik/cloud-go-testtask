@@ -14,6 +14,7 @@ var (
 	ErrDefaultPlaylistNotSet  = errors.New("default playlist not set")
 	ErrNilNode                = errors.New("node or node.Song is nil")
 	ErrAddSong                = errors.New("failed to add song")
+	ErrPlaylistCreationFailed = errors.New("playlist creation failed")
 )
 
 type PlaylistRepository interface {

@@ -29,6 +29,9 @@ func (r *PlaylistRepositoryRDBMS) CreatePlaylist(name, description string) (int,
 		name, description).Scan(&createdPlaylistId)
 
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, repository.ErrPlaylistCreationFailed
+		}
 		return 0, err
 	}
 
