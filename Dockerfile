@@ -27,6 +27,8 @@ COPY --from=builder /app/migrate .
 # Add goose CLI
 COPY --from=builder /go/bin/goose /usr/local/bin/goose
 
+COPY .env .env
+
 COPY ./migrations ./migrations
 COPY ./config ./config
 

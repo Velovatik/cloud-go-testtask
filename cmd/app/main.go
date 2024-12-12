@@ -36,6 +36,7 @@ In main() function there is:
 */
 func main() {
 	cfg := config.MustLoad()
+	//config.LoadEnv()
 
 	logger := setupLogger(cfg.Env)
 

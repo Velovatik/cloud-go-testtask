@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"cloud-go-testtask/internal/entity"
-	"cloud-go-testtask/internal/usecase"
 )
 
 func TestPlayCurrentSongUnderLoad(t *testing.T) {
@@ -15,7 +14,7 @@ func TestPlayCurrentSongUnderLoad(t *testing.T) {
 
 	logger := slog.Default()
 
-	uc := usecase.NewPlaylistUseCase(rdbmsRepo, cacheRepo, logger)
+	uc := NewPlaylistUseCase(rdbmsRepo, cacheRepo, logger)
 
 	songs := []*entity.Song{
 		{ID: 1, Title: "Song1", Artist: "Artist1", Duration: 5 * time.Second},
