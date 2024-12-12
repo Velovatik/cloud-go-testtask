@@ -48,7 +48,9 @@ func MustLoad() *Config {
 	return &cfg
 }
 
-func DeprecatedMustLoad() *Config {
+// MustLoadYAML used to load .yaml config file.
+// Changed to MustLoad to load .env config
+func MustLoadYAML() *Config {
 	configPath := os.Getenv("CONFIG_PATH")
 	if configPath == "" {
 		log.Fatal("CONFIG_PATH is not set")
