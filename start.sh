@@ -10,7 +10,7 @@ log "Запуск базы данных..."
 docker-compose up -d db
 
 log "Ожидание готовности базы данных..."
-until docker exec cloud-go-testtask-db-1 pg_isready -U postgres; do
+until docker exec exec -T db pg_isready -U postgres; do
   log "База данных ещё не готова. Ожидание..."
   sleep 2
 done

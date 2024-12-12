@@ -3,8 +3,6 @@ version: '3.8'
 services:
   app:
     #command: go test ./... -v -race
-    env_file:
-      - ./.env
     build:
       context: .
       dockerfile: Dockerfile
@@ -36,8 +34,6 @@ services:
     image: postgres:15
     ports:
       - "5432:5432"
-    env_file:
-      - ./.env
     volumes:
       - db_data:/var/lib/postgresql/data
     environment:
