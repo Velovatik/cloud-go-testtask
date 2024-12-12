@@ -53,10 +53,35 @@
    cd cloud-go-testtask
    ```
 
-2. **Настройка окружения:**
+2. Создать .env файл в корне проекта со следующим содержанием:
+   ```env
+   # Environment
+   ENV=local
+
+   # Storage Path
+   STORAGE_PATH=./storage/storage.db
+
+   # HTTP Server
+   HTTP_SERVER_ADDRESS=0.0.0.0:8082
+   HTTP_SERVER_TIMEOUT=4s
+   HTTP_SERVER_IDLE_TIMEOUT=60s
+   HTTP_SERVER_USER=myuser
+   HTTP_SERVER_PASSWORD=mypass
+
+   # Database Configuration
+   DB_HOST=db
+   DB_PORT=5432
+   DB_USER=postgres
+   DB_PASSWORD=password
+   DB_NAME=playlist
+   DB_SSLMODE=disable
+
+   ```
+
+3. **Настройка окружения:**
     - При необходимости обновите файл конфигурации `.env`.
 
-3. **Запуск приложения:**
+4. **Запуск приложения:**
     - Выполните скрипт `start.sh`:
       ```bash
       ./start.sh
