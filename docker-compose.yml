@@ -31,6 +31,7 @@ services:
       - db
 
   db:
+    container_name: cloud-go-testtask-db-1
     image: postgres:15
     ports:
       - "5432:5432"
