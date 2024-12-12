@@ -1,3 +1,7 @@
+// Deprecated: file no longer in use
+// Functionality moved and modified in:
+// internal/repository/cache/playlist_repository_cache.go, internal/usecase/playlist_usecase.go
+
 package service
 
 import (
